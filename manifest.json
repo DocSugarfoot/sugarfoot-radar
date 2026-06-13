@@ -8,7 +8,7 @@
     {
       "chipFamily": "ESP32",
       "parts": [
-        { "path": "DeskRadar_v4.bin", "offset": 0 }
+        { "path": "DeskRadar_v4_1.ino.bin", "offset": 0 }
       ]
     }
   ]
