@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sugarfoot's Flight Radar — Installer</title>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+
+  :root {
+    --red:    #ff2200;
+    --red-dim: #661100;
+    --red-glow: rgba(255,34,0,0.18);
+    --black:  #000000;
+    --dark:   #0a0a0a;
+    --mid:    #111111;
+    --text:   #cccccc;
+    --mono:   'Share Tech Mono', monospace;
+    --sans:   'Rajdhani', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Radar background animation */
+  .radar-bg {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 900px;
+    height: 900px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.07;
+  }
+  .radar-bg circle { fill: none; stroke: var(--red); stroke-width: 1; }
+  .radar-bg line  { stroke: var(--red); stroke-width: 0.5; }
+  .radar-sweep {
+    transform-origin: 450px 450px;
+    animation: sweep 4s linear infinite;
+  }
+  @keyframes sweep {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  .sweep-line { stroke: var(--red); stroke-width: 1.5; opacity: 0.8; }
+  .sweep-fill {
+    fill: none;
+    stroke: var(--red);
+    stroke-width: 200;
+    stroke-dasharray: 60 1200;
+    opacity: 0.15;
+  }
+
+  /* Layout */
+  .page { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Header */
+  header { text-align: center; padding: 60px 0 50px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(28px, 6vw, 52px);
+    font-weight: 400;
+    color: var(--red);
+    line-height: 1.1;
+    letter-spacing: -1px;
+    text-shadow: 0 0 40px rgba(255,34,0,0.4);
+    margin-bottom: 6px;
+  }
+  h1 span { display: block; font-size: 0.52em; color: #ff6644; letter-spacing: 2px; }
+  .tagline {
+    font-size: 16px;
+    color: #888;
+    margin-top: 16px;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+  }
+
+  /* Warning banner */
+  .browser-warn {
+    background: #1a0800;
+    border: 1px solid var(--red-dim);
+    border-radius: 4px;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #ff8866;
+    text-align: center;
+    margin-bottom: 32px;
+    display: none;
+  }
+  .browser-warn.show { display: block; }
+
+  /* Install card */
+  .install-card {
+    background: var(--mid);
+    border: 1px solid #222;
+    border-radius: 6px;
+    padding: 36px;
+    margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .install-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--red), transparent);
+  }
+  .install-card h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  /* ESP Web Tools button styling */
+  esp-web-install-button {
+    display: block;
+    margin: 24px 0;
+  }
+  esp-web-install-button::part(button) {
+    background: var(--red);
+    color: #000;
+    border: none;
+    padding: 16px 32px;
+    font-family: var(--mono);
+    font-size: 14px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    width: 100%;
+    font-weight: bold;
+    transition: background 0.15s, box-shadow 0.15s;
+    text-transform: uppercase;
+  }
+  esp-web-install-button::part(button):hover {
+    background: #ff4422;
+    box-shadow: 0 0 20px rgba(255,34,0,0.4);
+  }
+  esp-web-install-button::part(button):disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
+  }
+
+  .install-note {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #555;
+    text-align: center;
+    margin-top: 12px;
+  }
+  .install-note a { color: var(--red-dim); }
+
+  /* Steps */
+  .steps { counter-reset: step; }
+  .step {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    padding: 20px 0;
+    border-bottom: 1px solid #161616;
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    font-family: var(--mono);
+    font-size: 22px;
+    color: var(--red);
+    min-width: 32px;
+    line-height: 1;
+    opacity: 0.7;
+  }
+  .step-body h3 {
+    font-family: var(--sans);
+    font-size: 17px;
+    font-weight: 700;
+    color: #eee;
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+  }
+  .step-body p {
+    font-size: 14px;
+    color: #777;
+    line-height: 1.6;
+  }
+  .step-body code {
+    font-family: var(--mono);
+    background: #161616;
+    color: var(--red);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+
+  /* What you need */
+  .requirements {
+    background: #0d0d0d;
+    border: 1px solid #1a1a1a;
+    border-radius: 6px;
+    padding: 28px;
+    margin-bottom: 32px;
+  }
+  .requirements h2 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #444;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .req-list { list-style: none; }
+  .req-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 14px;
+    color: #888;
+    border-bottom: 1px solid #161616;
+  }
+  .req-list li:last-child { border-bottom: none; }
+  .req-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    flex-shrink: 0;
+    opacity: 0.6;
+  }
+
+  /* After install */
+  .after {
+    background: #050500;
+    border: 1px solid #1a1a00;
+    border-radius: 6px;
+    padding: 28px;
+    margin-top: 32px;
+  }
+  .after h2 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #554400;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .after-steps { list-style: none; }
+  .after-steps li {
+    padding: 8px 0;
+    font-size: 14px;
+    color: #777;
+    border-bottom: 1px solid #111100;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .after-steps li:last-child { border-bottom: none; }
+  .after-steps .num {
+    font-family: var(--mono);
+    color: #886600;
+    font-size: 11px;
+    min-width: 20px;
+    margin-top: 2px;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding-top: 48px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #333;
+    letter-spacing: 1px;
+  }
+  footer a { color: #444; text-decoration: none; }
+
+  /* Plane blip animation */
+  .blip {
+    position: fixed;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    animation: blip-fade 3s ease-in-out infinite;
+  }
+  @keyframes blip-fade {
+    0%   { opacity: 0; transform: scale(0.5); }
+    20%  { opacity: 0.6; transform: scale(1); }
+    80%  { opacity: 0.6; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.5); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Radar background -->
+<svg class="radar-bg" viewBox="0 0 900 900">
+  <circle cx="450" cy="450" r="150"/>
+  <circle cx="450" cy="450" r="300"/>
+  <circle cx="450" cy="450" r="440"/>
+  <line x1="450" y1="10" x2="450" y2="890"/>
+  <line x1="10" y1="450" x2="890" y2="450"/>
+  <line x1="140" y1="140" x2="760" y2="760"/>
+  <line x1="760" y1="140" x2="140" y2="760"/>
+  <g class="radar-sweep">
+    <line class="sweep-line" x1="450" y1="450" x2="450" y2="10"/>
+    <circle class="sweep-fill" cx="450" cy="450" r="220"/>
+  </g>
+</svg>
+
+<!-- Decorative blips -->
+<div class="blip" style="top:22%;left:18%;animation-delay:0s;"></div>
+<div class="blip" style="top:55%;left:75%;animation-delay:1.1s;"></div>
+<div class="blip" style="top:35%;left:62%;animation-delay:2.3s;"></div>
+<div class="blip" style="top:70%;left:30%;animation-delay:0.7s;"></div>
+<div class="blip" style="top:15%;left:55%;animation-delay:1.8s;"></div>
+
+<div class="page">
+
+  <header>
+    <p class="eyebrow">ESP32 · ADS-B · Flight Radar</p>
+    <h1>Sugarfoot's<span>Flight Radar</span></h1>
+    <p class="tagline">Flash your ESP32 and watch the skies — no software required.</p>
+  </header>
+
+  <div class="browser-warn" id="browserWarn">
+    ⚠ Web Serial requires Google Chrome or Microsoft Edge. Please open this page in Chrome to install.
+  </div>
+
+  <!-- Requirements -->
+  <div class="requirements">
+    <h2>What you need</h2>
+    <ul class="req-list">
+      <li><span class="req-dot"></span>ESP32 DevKit V1 board</li>
+      <li><span class="req-dot"></span>USB cable (data — not charge-only)</li>
+      <li><span class="req-dot"></span>Google Chrome or Microsoft Edge browser</li>
+      <li><span class="req-dot"></span>TFT display connected to your ESP32</li>
+      <li><span class="req-dot"></span>Free account at <a href="https://opensky-network.org" target="_blank" style="color:#555;">opensky-network.org</a> (optional, for more data)</li>
+    </ul>
+  </div>
+
+  <!-- Install card -->
+  <div class="install-card">
+    <h2>Flash Firmware</h2>
+    <div class="steps">
+      <div class="step">
+        <span class="step-num">01</span>
+        <div class="step-body">
+          <h3>Plug in your ESP32</h3>
+          <p>Connect it to your computer with a USB data cable. If Windows asks to install drivers, let it.</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">02</span>
+        <div class="step-body">
+          <h3>Click Install below</h3>
+          <p>Chrome will ask you to select a serial port — pick the one labelled <code>CP2102</code> or <code>CH340</code>. The flash takes about 30 seconds.</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">03</span>
+        <div class="step-body">
+          <h3>Wait for the reboot</h3>
+          <p>The board restarts automatically when flashing is complete. You'll see <em>SYSTEM BOOT</em> on the display.</p>
+        </div>
+      </div>
+    </div>
+
+    <esp-web-install-button manifest="manifest.json">
+      <span slot="activate">INSTALL SUGARFOOT'S RADAR</span>
+      <span slot="unsupported">Your browser doesn't support Web Serial. Please use Chrome.</span>
+    </esp-web-install-button>
+
+    <p class="install-note">
+      Installs firmware v4 · ESP32 only ·
+      <a href="DeskRadar_v4.bin" download>Download .bin instead</a>
+    </p>
+  </div>
+
+  <!-- After install -->
+  <div class="after">
+    <h2>After installing</h2>
+    <ul class="after-steps">
+      <li>
+        <span class="num">01</span>
+        On your phone, connect to the WiFi network called <strong style="color:#886600;">Sugarfoots Radar Setup</strong>
+      </li>
+      <li>
+        <span class="num">02</span>
+        Open a browser and go to <strong style="color:#886600;">192.168.4.1</strong>
+      </li>
+      <li>
+        <span class="num">03</span>
+        Enter the PIN <strong style="color:#886600;">111</strong>, select your WiFi network, enter your coordinates and range, then hit Save &amp; Reboot
+      </li>
+      <li>
+        <span class="num">04</span>
+        Within 5 seconds of rebooting, planes start appearing on the radar
+      </li>
+      <li>
+        <span class="num">05</span>
+        <strong style="color:#886600;">D22 button</strong> — short press cycles declutter levels · 2 second hold returns to setup
+      </li>
+    </ul>
+  </div>
+
+</div>
+
+<footer>
+  <p>Sugarfoot's Flight Radar &nbsp;·&nbsp; Built for ESP32 &nbsp;·&nbsp; Powered by <a href="https://adsb.fi" target="_blank">adsb.fi</a></p>
+</footer>
+
+<script>
+  // Show browser warning if not Chrome/Edge
+  const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+  const isEdge = /Edg/.test(navigator.userAgent);
+  if (!isChrome && !isEdge) {
+    document.getElementById('browserWarn').classList.add('show');
+  }
+</script>
+
+</body>
+</html>
